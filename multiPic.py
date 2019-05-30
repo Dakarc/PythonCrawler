@@ -6,10 +6,22 @@ import re
 from queue import Queue
 import threading
 
-class Producer():
+class Producer(threading.Thread):
     header = {
         'user-agent':'Mozilla/5.0 (iPhone; CPU iPhone OS 10_3 like Mac OS X) AppleWebKit/602.1.50 (KHTML, like Gecko) CriOS/56.0.2924.75 Mobile/14E5239e Safari/602.1'
     }
+
+    def __init__(self,page_queue,img_queue,*args,**kwargs):
+        super(Producer,self).__init__(*args,**kwargs)
+        self.page_queue = page_queue
+        self.img_queue = img_queue
+
+    def run(self):
+        while True:
+            if self.page_queue.empty():
+                break
+            url = self.page_queue.get()
+            self.parse_page(url)
 
     def parse_page(self,url):
         response = requests.get(url,headers=self.header)
@@ -37,3 +49,21 @@ class Consumer(threading.Thread):
             img_url,filename = self.img_queue.get()
             request.urlretrieve(img_url,'images/ '+filename)
             print(filename+' 下载完成!')
+
+def main():
+    page_queue = Queue(100)
+    img_queue = Queue(1000)
+    for x in range(1,101):
+        url = 'http://www.doutula.com/photo/list/?page=%d' % x
+        page_queue.put(url)
+
+    for x in range(5):
+        t = Producer(page_queue,img_queue)
+        t.start()
+
+    for x in range(5):
+        t = Consumer(page_queue,img_queue)
+        t.start()
+
+if __name__ == '__main__':
+    main()
